@@ -1,0 +1,23 @@
+# Build results
+bin/
+obj/
+
+# VS files
+.vs/
+*.user
+*.suo
+
+# IDE
+.idea/
+.kiro/
+
+# Dependencies - excluded from repo
+duckovAPI-master/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log

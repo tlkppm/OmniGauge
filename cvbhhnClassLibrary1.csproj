@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <Nullable>enable</Nullable>
+        <!-- For Windows users, please fill the folder path which contains Duckov.exe below -->
+        <!-- Windows 用户请在下面这行填写你的鸭科夫安装路径（包含 Duckov.exe 的目录），这样编译器就能找到相关的 dll 文件 -->
+        <DuckovPath>E:\SteamLibrary\steamapps\common\Escape from Duckov</DuckovPath>
+
+        <SubPath>\Duckov_Data\Managed\</SubPath>
+
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Lib.Harmony" Version="2.2.2" />
+    </ItemGroup>
+    <ItemGroup>
+        <Reference Include="$(DuckovPath)$(SubPath)TeamSoda.*"/>
+        <Reference Include="$(DuckovPath)$(SubPath)ItemStatsSystem.dll"/>
+        <Reference Include="$(DuckovPath)$(SubPath)Unity*"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Remove="duckovAPI-master\**" />
+        <EmbeddedResource Remove="duckovAPI-master\**" />
+        <None Remove="duckovAPI-master\**" />
+    </ItemGroup>
+</Project>
