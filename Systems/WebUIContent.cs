@@ -371,7 +371,7 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("<div class=\"filter-bar\">");
             html.Append("<div class=\"search-input-group\">");
             html.Append("<i class=\"fa-solid fa-search\"></i>");
-            html.Append("<input type=\"text\" id=\"itemSearch\" class=\"form-control\" placeholder=\"搜索物品ID或名称...\" oninput=\"searchItems()\">");
+            html.Append("<input type=\"text\" id=\"itemSearch\" class=\"form-control\" placeholder=\"搜索物品ID或名称...\" oninput=\"debouncedSearch()\">");
             html.Append("</div>");
             
             html.Append("<select id=\"qualityFilter\" class=\"filter-select\" onchange=\"searchItems()\">");
@@ -400,7 +400,7 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("<span class=\"page-info\" id=\"pageInfo\">第 1 页</span>");
             html.Append("<button class=\"page-btn\" onclick=\"goToPage(currentPage + 1)\" title=\"下一页\"><i class=\"fa-solid fa-angle-right\"></i></button>");
             html.Append("<button class=\"page-btn\" onclick=\"goToPage(getTotalPages())\" title=\"末页\"><i class=\"fa-solid fa-angles-right\"></i></button>");
-            html.Append("<select class=\"page-size-select\" onchange=\"changePageSize(this.value)\">");
+            html.Append("<select id=\"pageSizeSelect\" class=\"page-size-select\" onchange=\"changePageSize(this.value)\">");
             html.Append("<option value=\"50\">50/页</option>");
             html.Append("<option value=\"100\">100/页</option>");
             html.Append("<option value=\"200\">200/页</option>");
@@ -472,7 +472,7 @@ namespace cvbhhnClassLibrary1.Systems
         {
             html.Append("let damageLog = []; let totalDamage = 0; let maxDamage = 0; let hitCount = 0;");
             html.Append("let dpsChart = null; let weaponPieChart = null;");
-            html.Append("let allItems = []; let filteredItems = []; let currentPage = 1; let itemsPerPage = 50;");
+            html.Append("let allItems = []; let filteredItems = []; let currentPage = 1; let itemsPerPage = parseInt(localStorage.getItem('omni_itemsPerPage')) || 50;");
         }
 
         private static void AppendTabFunctions(StringBuilder html)
@@ -928,9 +928,19 @@ namespace cvbhhnClassLibrary1.Systems
             
             html.Append("function changePageSize(size) {");
             html.Append("itemsPerPage = parseInt(size);");
+            html.Append("localStorage.setItem('omni_itemsPerPage', itemsPerPage);");
             html.Append("currentPage = 1;");
             html.Append("renderItems(filteredItems, false);");
+            html.Append("document.getElementById('itemsGrid').scrollIntoView({behavior: 'smooth', block: 'start'});");
             html.Append("}");
+            
+            html.Append("function debounce(func, wait) { let timeout; return function() { const context = this, args = arguments; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), wait); }; }");
+            html.Append("const debouncedSearch = debounce(searchItems, 300);");
+            
+            html.Append("document.addEventListener('DOMContentLoaded', function() {");
+            html.Append("  var pageSizeSelect = document.getElementById('pageSizeSelect');");
+            html.Append("  if(pageSizeSelect) pageSizeSelect.value = itemsPerPage;");
+            html.Append("});");
             
             html.Append("function openItemModal(id) {");
             html.Append("var item = allItems.find(function(i) { return i.id === id; });");
