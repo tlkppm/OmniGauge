@@ -145,21 +145,21 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append(".empty-state { text-align: center; padding: 48px 0; color: var(--text-secondary); }");
             html.Append(".empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }");
             
-            html.Append(".items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 20px; }");
-            html.Append(".item-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: all 0.2s; cursor: pointer; position: relative; overflow: hidden; }");
+            html.Append(".items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }");
+            html.Append(".item-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; transition: all 0.2s; cursor: pointer; position: relative; overflow: hidden; height: 100%; min-height: 280px; }");
             html.Append(".item-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); border-color: var(--primary-color); }");
             
-            html.Append(".item-icon-wrapper { width: 72px; height: 72px; background-color: var(--card-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); margin-bottom: 4px; }");
-            html.Append(".item-icon-wrapper img { max-width: 60px; max-height: 60px; object-fit: contain; }");
+            html.Append(".item-icon-wrapper { width: 80px; height: 80px; background-color: var(--card-bg); border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); margin-bottom: 8px; flex-shrink: 0; }");
+            html.Append(".item-icon-wrapper img { max-width: 64px; max-height: 64px; object-fit: contain; }");
             html.Append(".item-icon-wrapper i { font-size: 32px; color: var(--text-secondary); opacity: 0.5; }");
             
-            html.Append(".item-info { width: 100%; text-align: center; }");
-            html.Append(".item-name { font-weight: 600; font-size: 14px; color: var(--text-color); margin-bottom: 4px; line-height: 1.4; }");
-            html.Append(".item-desc { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.4; max-height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }");
-            html.Append(".item-meta { display: flex; justify-content: center; gap: 6px; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; flex-wrap: wrap; }");
-            html.Append(".item-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background-color: var(--border-color); color: var(--text-secondary); font-weight: 500; }");
+            html.Append(".item-info { width: 100%; text-align: center; display: flex; flex-direction: column; flex: 1; }");
+            html.Append(".item-name { font-weight: 600; font-size: 14px; color: var(--text-color); margin-bottom: 8px; line-height: 1.4; min-height: 40px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }");
+            html.Append(".item-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; height: 36px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }");
+            html.Append(".item-meta { display: flex; justify-content: center; gap: 6px; font-size: 11px; color: var(--text-secondary); margin-top: auto; flex-wrap: wrap; }");
+            html.Append(".item-tag { font-size: 10px; padding: 4px 8px; border-radius: 6px; background-color: var(--border-color); color: var(--text-secondary); font-weight: 500; white-space: nowrap; }");
             
-            html.Append(".item-price-tag { font-size: 12px; font-weight: 600; color: var(--success-color); display: flex; align-items: center; gap: 4px; justify-content: center; }");
+            html.Append(".item-price-tag { font-size: 12px; font-weight: 600; color: var(--success-color); display: flex; align-items: center; gap: 4px; justify-content: center; margin-top: 8px; }");
             
             // 搜索栏样式
             html.Append(".filter-bar { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; background-color: var(--bg-color); padding: 16px; border-radius: 12px; border: 1px solid var(--border-color); }");
@@ -740,16 +740,17 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("fetch('/api/tasks').then(r => r.json()).then(data => {");
             html.Append("if (data.length === 0) { gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-search\"></i><p>暂无数据，请按 R 键读取游戏任务</p></div>'; return; }");
             html.Append("let html = '';");
-            html.Append("data.slice(0, 100).forEach((task, idx) => {");
-            html.Append("html += '<div class=\"task-card\">';");
-            html.Append("html += '<div class=\"task-header-row\"><div class=\"task-name\">[' + task.id + '] ' + (task.name || '未命名任务') + '</div><div class=\"task-tag\">' + (task.status || 'Unknown') + '</div></div>';");
+            html.Append("var statusColors = {'进行中': 'var(--primary-color)', '已完成': 'var(--success-color)', '可接取': '#f59e0b', '已失败': 'var(--danger-color)'};");
+            html.Append("data.forEach((task, idx) => {");
+            html.Append("var statusColor = statusColors[task.status] || 'var(--text-secondary)';");
+            html.Append("html += '<div class=\"task-card\" style=\"border-left: 4px solid ' + statusColor + ';\">';");
+            html.Append("html += '<div class=\"task-header-row\"><div class=\"task-name\">[' + task.id + '] ' + (task.name || '未命名任务') + '</div><div class=\"task-tag\" style=\"background: ' + statusColor + '; color: #fff; border: none;\">' + (task.status || 'Unknown') + '</div></div>';");
             html.Append("if(task.objectives) { html += '<div class=\"task-desc\"><strong>目标：</strong>' + task.objectives + '</div>'; }");
             html.Append("if(task.rewards) { html += '<div class=\"task-desc\"><strong>奖励：</strong>' + task.rewards + '</div>'; }");
             html.Append("html += '<div class=\"task-desc\"><strong>进度：</strong>' + (task.progress || 'Unknown') + '</div>';");
-            html.Append("if(task.canComplete) { html += '<div class=\"task-actions\"><button class=\"btn btn-success\" onclick=\"completeGameTask(' + task.id + ')\"><i class=\"fa-solid fa-check\"></i> 完成任务</button></div>'; }");
+            html.Append("if(task.canComplete) { html += '<div class=\"task-actions\" style=\"margin-top: 12px;\"><button class=\"btn btn-success\" onclick=\"completeGameTask(' + task.id + ')\"><i class=\"fa-solid fa-check\"></i> 完成任务</button></div>'; }");
             html.Append("html += '</div>';");
             html.Append("});");
-            html.Append("if (data.length > 100) { html += '<div class=\"empty-state\"><p>显示前 100 个任务，共 ' + data.length + ' 个</p></div>'; }");
             html.Append("gameTasksElement.innerHTML = html;");
             html.Append("showToast('加载成功', '已读取游戏任务列表', 'success');");
             html.Append("}).catch(err => { ");

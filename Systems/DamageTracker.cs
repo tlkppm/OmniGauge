@@ -11,7 +11,8 @@ namespace cvbhhnClassLibrary1.Systems
         {
             public float value;
             public string source;
-            public float timestamp;
+            public float gameTime;
+            public System.DateTime realTime;
             public string damageType;
             public string targetName;
             public bool isCrit;
@@ -28,7 +29,8 @@ namespace cvbhhnClassLibrary1.Systems
             {
                 value = damage,
                 source = source,
-                timestamp = Time.time,
+                gameTime = Time.time,
+                realTime = System.DateTime.Now,
                 damageType = damageType,
                 targetName = targetName,
                 isCrit = isCrit

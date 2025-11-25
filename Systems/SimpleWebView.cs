@@ -271,7 +271,9 @@ namespace cvbhhnClassLibrary1.Systems
                     json.Append("{");
                     json.Append($"\"damage\":{records[i].value},");
                     json.Append($"\"weapon\":\"{EscapeJson(records[i].source)}\",");
-                    json.Append($"\"time\":\"{System.DateTime.Now.ToString("HH:mm:ss")}\",");
+                    json.Append($"\"time\":\"{records[i].realTime.ToString("HH:mm:ss.fff")}\",");
+                    json.Append($"\"timestamp\":\"{records[i].realTime.ToString("o")}\",");
+                    json.Append($"\"gameTime\":{records[i].gameTime.ToString(System.Globalization.CultureInfo.InvariantCulture)},");
                     json.Append($"\"damageType\":\"{EscapeJson(records[i].damageType)}\",");
                     json.Append($"\"target\":\"{EscapeJson(records[i].targetName)}\",");
                     json.Append($"\"isCrit\":{records[i].isCrit.ToString().ToLower()}");

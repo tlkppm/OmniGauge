@@ -59,15 +59,26 @@ namespace cvbhhnClassLibrary1
             {
                 if (SceneDetector.IsInGame())
                 {
-                    gameTaskReader.ReadAllGameTasks();
-                    itemReader.RequestReload();
-                    Debug.Log("[ModBehaviour] Read all game tasks and items");
+                    StartCoroutine(ReloadDataAsync());
                 }
                 else
                 {
                     Debug.Log("[ModBehaviour] Cannot reload data in main menu");
                 }
             }
+        }
+
+        private System.Collections.IEnumerator ReloadDataAsync()
+        {
+            Debug.Log("[ModBehaviour] Starting async data reload");
+            
+            yield return null;
+            gameTaskReader.ReadAllGameTasks();
+            Debug.Log("[ModBehaviour] Game tasks loaded");
+            
+            yield return null;
+            itemReader.RequestReload();
+            Debug.Log("[ModBehaviour] Item reload requested");
         }
 
 

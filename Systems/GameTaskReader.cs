@@ -47,7 +47,6 @@ namespace cvbhhnClassLibrary1.Systems
                 if (questManagerType == null)
                 {
                     Debug.LogWarning("[GameTaskReader] QuestManager type not found in any assembly");
-                    Debug.Log("[GameTaskReader] Searching for Quest-related types...");
                     ListQuestTypes();
                     return new List<GameTaskInfo>(cachedTasks);
                 }
@@ -68,33 +67,14 @@ namespace cvbhhnClassLibrary1.Systems
                     return new List<GameTaskInfo>(cachedTasks);
                 }
 
-                PropertyInfo activeQuestsProp = questManagerType.GetProperty("ActiveQuests", BindingFlags.Public | BindingFlags.Instance);
-                if (activeQuestsProp == null)
-                {
-                    Debug.LogWarning("[GameTaskReader] ActiveQuests property not found");
-                    return new List<GameTaskInfo>(cachedTasks);
-                }
+                LogQuestManagerProperties(questManagerType, questManagerInstance);
 
-                object activeQuestsObj = activeQuestsProp.GetValue(questManagerInstance);
-                if (activeQuestsObj == null)
-                {
-                    Debug.Log("[GameTaskReader] No active quests");
-                    return new List<GameTaskInfo>(cachedTasks);
-                }
-
-                System.Collections.IList activeQuests = activeQuestsObj as System.Collections.IList;
-                if (activeQuests != null)
-                {
-                    foreach (var quest in activeQuests)
-                    {
-                        if (quest != null)
-                        {
-                            ExtractQuestInfo(quest);
-                        }
-                    }
-                }
+                ReadQuestList(questManagerType, questManagerInstance, "ActiveQuests", "进行中");
+                ReadQuestList(questManagerType, questManagerInstance, "CompletedQuests", "已完成");
+                ReadQuestList(questManagerType, questManagerInstance, "AvailableQuests", "可接取");
+                ReadQuestList(questManagerType, questManagerInstance, "FailedQuests", "已失败");
                 
-                Debug.Log($"[GameTaskReader] Found {cachedTasks.Count} real game quests");
+                Debug.Log($"[GameTaskReader] Total quests found: {cachedTasks.Count}");
             }
             catch (Exception e)
             {
@@ -102,6 +82,72 @@ namespace cvbhhnClassLibrary1.Systems
             }
             
             return new List<GameTaskInfo>(cachedTasks);
+        }
+
+        private void LogQuestManagerProperties(Type questManagerType, object instance)
+        {
+            try
+            {
+                var props = questManagerType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+                Debug.Log($"[GameTaskReader] QuestManager properties ({props.Length}):");
+                foreach (var prop in props)
+                {
+                    try
+                    {
+                        var val = prop.GetValue(instance);
+                        string valStr = val == null ? "null" : (val is System.Collections.IList list ? $"List[{list.Count}]" : val.ToString());
+                        Debug.Log($"  - {prop.Name}: {prop.PropertyType.Name} = {valStr}");
+                    }
+                    catch
+                    {
+                        Debug.Log($"  - {prop.Name}: {prop.PropertyType.Name} (unable to read)");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[GameTaskReader] Error logging properties: {e.Message}");
+            }
+        }
+
+        private void ReadQuestList(Type questManagerType, object instance, string propertyName, string statusLabel)
+        {
+            try
+            {
+                PropertyInfo questsProp = questManagerType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+                if (questsProp == null)
+                {
+                    Debug.Log($"[GameTaskReader] {propertyName} property not found");
+                    return;
+                }
+
+                object questsObj = questsProp.GetValue(instance);
+                if (questsObj == null)
+                {
+                    Debug.Log($"[GameTaskReader] {propertyName} is null");
+                    return;
+                }
+
+                System.Collections.IList quests = questsObj as System.Collections.IList;
+                if (quests == null || quests.Count == 0)
+                {
+                    Debug.Log($"[GameTaskReader] {propertyName}: 0 quests");
+                    return;
+                }
+
+                Debug.Log($"[GameTaskReader] {propertyName}: {quests.Count} quests");
+                foreach (var quest in quests)
+                {
+                    if (quest != null)
+                    {
+                        ExtractQuestInfo(quest, statusLabel);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[GameTaskReader] Error reading {propertyName}: {e.Message}");
+            }
         }
 
         private Type FindType(string fullName)
@@ -151,7 +197,7 @@ namespace cvbhhnClassLibrary1.Systems
             Debug.Log($"[GameTaskReader] Total Quest/Mission types found: {count}");
         }
 
-        private void ExtractQuestInfo(object quest)
+        private void ExtractQuestInfo(object quest, string statusOverride = null)
         {
             try
             {
@@ -240,15 +286,17 @@ namespace cvbhhnClassLibrary1.Systems
                 MethodInfo areTasksFinishedMethod = questType.GetMethod("AreTasksFinished", BindingFlags.Public | BindingFlags.Instance);
                 bool canComplete = !isComplete && areTasksFinishedMethod != null && (bool)areTasksFinishedMethod.Invoke(quest, null);
                 
+                string status = statusOverride ?? (isComplete ? "已完成" : "进行中");
+                
                 var taskInfo = new GameTaskInfo
                 {
                     id = questId,
                     name = displayName,
-                    status = isComplete ? "已完成" : "进行中",
+                    status = status,
                     progress = progress,
                     objectives = objectives,
                     rewards = rewardsText,
-                    canComplete = canComplete,
+                    canComplete = canComplete && status == "进行中",
                     originalTask = quest
                 };
                 
