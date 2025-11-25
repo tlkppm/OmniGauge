@@ -178,6 +178,13 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append(".q-4 { background-color: #8b5cf6; }"); // Epic
             html.Append(".q-5 { background-color: #f59e0b; }"); // Legendary
             
+            html.Append(".pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; padding: 16px; background-color: var(--bg-color); border-radius: 12px; border: 1px solid var(--border-color); }");
+            html.Append(".page-btn { width: 36px; height: 36px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); color: var(--text-color); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }");
+            html.Append(".page-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }");
+            html.Append(".page-btn:disabled { opacity: 0.5; cursor: not-allowed; }");
+            html.Append(".page-info { font-size: 14px; color: var(--text-color); padding: 0 16px; min-width: 120px; text-align: center; }");
+            html.Append(".page-size-select { height: 36px; border-radius: 8px; border: 1px solid var(--border-color); padding: 0 12px; font-size: 13px; color: var(--text-color); background-color: var(--card-bg); cursor: pointer; margin-left: 16px; }");
+            
             // Toast Notification Styles
             html.Append(".toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }");
             html.Append(".toast { background-color: var(--card-bg); border-radius: 8px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); border-left: 4px solid var(--primary-color); display: flex; align-items: center; gap: 12px; min-width: 300px; transform: translateX(120%); transition: transform 0.3s ease-out; pointer-events: auto; }");
@@ -386,6 +393,21 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("<div class=\"items-grid\" id=\"itemsGrid\">");
             html.Append("<div class=\"empty-state\" style=\"padding: 60px 0;\"><i class=\"fa-solid fa-box-open\" style=\"font-size: 64px; margin-bottom: 24px;\"></i><p style=\"font-size: 16px;\">点击上方刷新按钮加载物品数据</p></div>");
             html.Append("</div>");
+            
+            html.Append("<div class=\"pagination\" id=\"itemsPagination\" style=\"display: none;\">");
+            html.Append("<button class=\"page-btn\" onclick=\"goToPage(1)\" title=\"首页\"><i class=\"fa-solid fa-angles-left\"></i></button>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToPage(currentPage - 1)\" title=\"上一页\"><i class=\"fa-solid fa-angle-left\"></i></button>");
+            html.Append("<span class=\"page-info\" id=\"pageInfo\">第 1 页</span>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToPage(currentPage + 1)\" title=\"下一页\"><i class=\"fa-solid fa-angle-right\"></i></button>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToPage(getTotalPages())\" title=\"末页\"><i class=\"fa-solid fa-angles-right\"></i></button>");
+            html.Append("<select class=\"page-size-select\" onchange=\"changePageSize(this.value)\">");
+            html.Append("<option value=\"50\">50/页</option>");
+            html.Append("<option value=\"100\">100/页</option>");
+            html.Append("<option value=\"200\">200/页</option>");
+            html.Append("<option value=\"500\">500/页</option>");
+            html.Append("</select>");
+            html.Append("</div>");
+            
             html.Append("</div>");
             html.Append("</div>");
         }
@@ -435,6 +457,9 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("window.completeGameTask = completeGameTask;");
             html.Append("window.loadItems = loadItems;");
             html.Append("window.searchItems = searchItems;");
+            html.Append("window.goToPage = goToPage;");
+            html.Append("window.changePageSize = changePageSize;");
+            html.Append("window.getTotalPages = getTotalPages;");
             html.Append("window.openItemModal = openItemModal;");
             html.Append("window.closeItemModal = closeItemModal;");
             html.Append("window.adjustQuantity = adjustQuantity;");
@@ -447,7 +472,7 @@ namespace cvbhhnClassLibrary1.Systems
         {
             html.Append("let damageLog = []; let totalDamage = 0; let maxDamage = 0; let hitCount = 0;");
             html.Append("let dpsChart = null; let weaponPieChart = null;");
-            html.Append("let allItems = [];");
+            html.Append("let allItems = []; let filteredItems = []; let currentPage = 1; let itemsPerPage = 50;");
         }
 
         private static void AppendTabFunctions(StringBuilder html)
@@ -819,17 +844,24 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("select.value = current;");
             html.Append("}");
 
-            html.Append("function renderItems(items) {");
+            html.Append("function renderItems(items, resetPage) {");
+            html.Append("if(resetPage) currentPage = 1;");
+            html.Append("filteredItems = items;");
             html.Append("var grid = document.getElementById('itemsGrid');");
-            html.Append("if(items.length === 0) { grid.innerHTML = '<div class=\"empty-state\" style=\"grid-column: 1/-1; padding: 60px 0;\"><i class=\"fa-solid fa-box-open\" style=\"font-size: 64px; margin-bottom: 24px;\"></i><p style=\"font-size: 16px;\">没有找到符合条件的物品</p></div>'; return; }");
+            html.Append("var pagination = document.getElementById('itemsPagination');");
+            html.Append("if(items.length === 0) { grid.innerHTML = '<div class=\"empty-state\" style=\"grid-column: 1/-1; padding: 60px 0;\"><i class=\"fa-solid fa-box-open\" style=\"font-size: 64px; margin-bottom: 24px;\"></i><p style=\"font-size: 16px;\">没有找到符合条件的物品</p></div>'; pagination.style.display = 'none'; return; }");
+            html.Append("var totalPages = Math.ceil(items.length / itemsPerPage);");
+            html.Append("if(currentPage > totalPages) currentPage = totalPages;");
+            html.Append("var startIdx = (currentPage - 1) * itemsPerPage;");
+            html.Append("var endIdx = Math.min(startIdx + itemsPerPage, items.length);");
+            html.Append("var pageItems = items.slice(startIdx, endIdx);");
             html.Append("var html = '';");
-            html.Append("items.slice(0, 200).forEach(function(item) {");
+            html.Append("pageItems.forEach(function(item) {");
             html.Append("  var qualityClass = 'q-' + Math.min(Math.max(item.quality, 1), 5);");
             html.Append("  var iconHtml = item.icon ? '<img src=\"data:image/png;base64,' + item.icon + '\" alt=\"\">' : '<i class=\"fa-solid fa-xmark\" style=\"font-size: 24px; opacity: 0.3;\"></i>';");
             html.Append("  var priceHtml = item.price > 0 ? '<div class=\"item-price-tag\"><i class=\"fa-solid fa-coins\"></i> ' + item.price + '</div>' : '';");
             html.Append("  var descHtml = item.description ? '<div class=\"item-desc\">' + item.description + '</div>' : '';");
             html.Append("  var catText = translateCategory(item.category);");
-            html.Append("  ");
             html.Append("  html += '<div class=\"item-card\" onclick=\"openItemModal(' + item.id + ')\">';");
             html.Append("  html += '<div class=\"quality-bar ' + qualityClass + '\"></div>';");
             html.Append("  html += '<div class=\"item-icon-wrapper\">' + iconHtml + '</div>';");
@@ -840,8 +872,8 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("  html += priceHtml;");
             html.Append("  html += '</div></div>';");
             html.Append("});");
-            html.Append("if(items.length > 200) { html += '<div class=\"empty-state\" style=\"grid-column: 1/-1; padding: 20px;\"><p>显示前 200 个物品，共 ' + items.length + ' 个</p></div>'; }");
             html.Append("grid.innerHTML = html;");
+            html.Append("updatePagination();");
             html.Append("}");
 
             html.Append("function searchItems() {");
@@ -863,7 +895,41 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("});");
             
             html.Append("countEl.textContent = '找到 ' + filtered.length + ' 个物品 (总数: ' + allItems.length + ')';");
-            html.Append("renderItems(filtered);");
+            html.Append("renderItems(filtered, true);");
+            html.Append("}");
+            
+            html.Append("function getTotalPages() { return Math.ceil(filteredItems.length / itemsPerPage); }");
+            
+            html.Append("function updatePagination() {");
+            html.Append("var pagination = document.getElementById('itemsPagination');");
+            html.Append("var pageInfo = document.getElementById('pageInfo');");
+            html.Append("var totalPages = getTotalPages();");
+            html.Append("if(totalPages <= 1) { pagination.style.display = 'none'; return; }");
+            html.Append("pagination.style.display = 'flex';");
+            html.Append("var startIdx = (currentPage - 1) * itemsPerPage + 1;");
+            html.Append("var endIdx = Math.min(currentPage * itemsPerPage, filteredItems.length);");
+            html.Append("pageInfo.textContent = '第 ' + currentPage + '/' + totalPages + ' 页 (' + startIdx + '-' + endIdx + ')';");
+            html.Append("var btns = pagination.querySelectorAll('.page-btn');");
+            html.Append("btns[0].disabled = currentPage === 1;");
+            html.Append("btns[1].disabled = currentPage === 1;");
+            html.Append("btns[2].disabled = currentPage === totalPages;");
+            html.Append("btns[3].disabled = currentPage === totalPages;");
+            html.Append("}");
+            
+            html.Append("function goToPage(page) {");
+            html.Append("var totalPages = getTotalPages();");
+            html.Append("if(page < 1) page = 1;");
+            html.Append("if(page > totalPages) page = totalPages;");
+            html.Append("if(page === currentPage) return;");
+            html.Append("currentPage = page;");
+            html.Append("renderItems(filteredItems, false);");
+            html.Append("document.getElementById('itemsGrid').scrollIntoView({behavior: 'smooth', block: 'start'});");
+            html.Append("}");
+            
+            html.Append("function changePageSize(size) {");
+            html.Append("itemsPerPage = parseInt(size);");
+            html.Append("currentPage = 1;");
+            html.Append("renderItems(filteredItems, false);");
             html.Append("}");
             
             html.Append("function openItemModal(id) {");
