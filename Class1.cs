@@ -12,16 +12,38 @@ namespace cvbhhnClassLibrary1
         private GameHooks gameHooks;
         private ItemReader itemReader;
         private KeyCode toggleKey = KeyCode.T;
+        private bool wasInGame = false;
+        private bool systemsInitialized = false;
 
         void Start()
         {
-            Debug.Log("[ModBehaviour] Test Tool v1.0.0 starting");
-            InitializeSystems();
-            Debug.Log("[ModBehaviour] Test Tool started successfully");
+            Debug.Log("[ModBehaviour] OmniGauge v1.0.0 starting");
+            InitializeBaseSystems();
+            Debug.Log("[ModBehaviour] OmniGauge base systems initialized, waiting for game scene");
         }
 
         void Update()
         {
+            bool isInGame = SceneDetector.IsInGame();
+            
+            if (isInGame && !wasInGame)
+            {
+                Debug.Log($"[ModBehaviour] Entered game scene: {SceneDetector.GetCurrentSceneName()}");
+                if (!systemsInitialized)
+                {
+                    InitializeGameSystems();
+                    systemsInitialized = true;
+                }
+            }
+            else if (!isInGame && wasInGame)
+            {
+                Debug.Log($"[ModBehaviour] Left game scene, current: {SceneDetector.GetCurrentSceneName()}");
+            }
+            wasInGame = isInGame;
+
+            if (!isInGame)
+                return;
+
             if (itemReader != null)
             {
                 itemReader.UpdateOnMainThread();
@@ -35,16 +57,23 @@ namespace cvbhhnClassLibrary1
 
             if (Input.GetKeyDown(KeyCode.R))
             {
-                gameTaskReader.ReadAllGameTasks();
-                itemReader.RequestReload();
-                Debug.Log("[ModBehaviour] Read all game tasks and items");
+                if (SceneDetector.IsInGame())
+                {
+                    gameTaskReader.ReadAllGameTasks();
+                    itemReader.RequestReload();
+                    Debug.Log("[ModBehaviour] Read all game tasks and items");
+                }
+                else
+                {
+                    Debug.Log("[ModBehaviour] Cannot reload data in main menu");
+                }
             }
         }
 
 
-        void InitializeSystems()
+        void InitializeBaseSystems()
         {
-            Debug.Log("[ModBehaviour] Initializing systems");
+            Debug.Log("[ModBehaviour] Initializing base systems");
             
             damageTracker = new DamageTracker();
             damageTracker.Initialize();
@@ -60,11 +89,18 @@ namespace cvbhhnClassLibrary1
 
             webViewSystem = SimpleWebView.Instance;
             webViewSystem.Initialize(gameTaskReader, damageTracker, taskManager, itemReader);
+            
+            Debug.Log("[ModBehaviour] Base systems initialized");
+        }
 
+        void InitializeGameSystems()
+        {
+            Debug.Log("[ModBehaviour] Initializing game systems");
+            
             gameHooks = new GameHooks();
             gameHooks.Initialize(damageTracker, taskManager);
             
-            Debug.Log("[ModBehaviour] All systems initialized");
+            Debug.Log("[ModBehaviour] Game systems initialized");
         }
 
         void OnDestroy()

@@ -56,6 +56,12 @@ namespace cvbhhnClassLibrary1.Systems
         
         private void GiveItemOnMainThread(int itemId, int quantity)
         {
+            if (!SceneDetector.IsInGame())
+            {
+                Debug.LogWarning("[ItemReader] Cannot give items in main menu");
+                return;
+            }
+
             try
             {
                 var cheatingManagerType = Type.GetType("CheatingManager, Assembly-CSharp");
@@ -125,6 +131,13 @@ namespace cvbhhnClassLibrary1.Systems
         
         private void StartLoadingItems()
         {
+            if (!SceneDetector.IsInGame())
+            {
+                Debug.Log("[ItemReader] Not in game scene, skipping item load");
+                needsReload = true;
+                return;
+            }
+
             isLoading = true;
             isLoaded = false;
             cachedItems.Clear();

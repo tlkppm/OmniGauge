@@ -33,6 +33,12 @@ namespace cvbhhnClassLibrary1.Systems
 
         public List<GameTaskInfo> ReadAllGameTasks()
         {
+            if (!SceneDetector.IsInGame())
+            {
+                Debug.Log("[GameTaskReader] Not in game scene, skipping task read");
+                return new List<GameTaskInfo>(cachedTasks);
+            }
+
             cachedTasks.Clear();
             
             try
