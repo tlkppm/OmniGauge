@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Reflection;
 using System;
+using System.Threading;
 using ItemStatsSystem;
 
 namespace cvbhhnClassLibrary1.Systems
@@ -17,6 +18,8 @@ namespace cvbhhnClassLibrary1.Systems
         public int price;
         public int maxStack;
         public string iconBase64;
+        [System.NonSerialized]
+        public Sprite iconSprite;
     }
 
     public class ItemReader
@@ -30,12 +33,78 @@ namespace cvbhhnClassLibrary1.Systems
         
         private List<object> pendingEntries = new List<object>();
         private int currentEntryIndex = 0;
-        private const int ITEMS_PER_FRAME = 20;
+        private const int ITEMS_PER_FRAME = 50;
         private int totalEntries = 0;
+        private int retryFrameCounter = 0;
+        private const int RETRY_FRAME_INTERVAL = 60;
 
         public void Initialize()
         {
             Debug.Log("[ItemReader] Initialized");
+            StartIconConvertThread();
+        }
+        
+        private void StartIconConvertThread()
+        {
+            if (iconConvertThread != null && iconConvertThread.IsAlive) return;
+            
+            threadRunning = true;
+            iconConvertThread = new Thread(IconConvertThreadLoop);
+            iconConvertThread.IsBackground = true;
+            iconConvertThread.Start();
+            Debug.Log("[ItemReader] Icon convert thread started");
+        }
+        
+        private void IconConvertThreadLoop()
+        {
+            while (threadRunning)
+            {
+                (int itemId, byte[] pngData) work = default;
+                bool hasWork = false;
+                
+                lock (queueLock)
+                {
+                    if (pngConvertQueue.Count > 0)
+                    {
+                        work = pngConvertQueue.Dequeue();
+                        hasWork = true;
+                    }
+                }
+                
+                if (hasWork)
+                {
+                    try
+                    {
+                        string base64 = Convert.ToBase64String(work.pngData);
+                        lock (queueLock)
+                        {
+                            iconCache[work.itemId] = base64;
+                            foreach (var item in cachedItems)
+                            {
+                                if (item.id == work.itemId)
+                                {
+                                    item.iconBase64 = base64;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+                else
+                {
+                    Thread.Sleep(50);
+                }
+            }
+        }
+        
+        public void Shutdown()
+        {
+            threadRunning = false;
+            if (iconConvertThread != null && iconConvertThread.IsAlive)
+            {
+                iconConvertThread.Join(1000);
+            }
         }
         
         public int LoadProgress => totalEntries > 0 ? (currentEntryIndex * 100 / totalEntries) : 0;
@@ -108,9 +177,24 @@ namespace cvbhhnClassLibrary1.Systems
         public bool IsLoaded => isLoaded;
         public bool IsLoading => isLoading;
 
-        public void RequestReload()
+        private bool forceReloadIcons = false;
+        private Dictionary<int, string> iconCache = new Dictionary<int, string>();
+        private int iconConvertIndex = 0;
+        private int iconConvertDelay = 0;
+        private const int ICON_CONVERT_DELAY_FRAMES = 120;
+        private int iconConvertFrameSkip = 0;
+        private const int ICON_CONVERT_FRAME_INTERVAL = 2;
+        
+        private Queue<(int itemId, byte[] pngData)> pngConvertQueue = new Queue<(int, byte[])>();
+        private Thread iconConvertThread;
+        private bool threadRunning = false;
+        private object queueLock = new object();
+
+        public void RequestReload(bool reloadIcons = false)
         {
             needsReload = true;
+            forceReloadIcons = reloadIcons;
+            retryFrameCounter = RETRY_FRAME_INTERVAL;
         }
 
         public void UpdateOnMainThread()
@@ -119,14 +203,145 @@ namespace cvbhhnClassLibrary1.Systems
             
             if (needsReload && !isLoading)
             {
-                needsReload = false;
-                StartLoadingItems();
+                retryFrameCounter++;
+                if (retryFrameCounter >= RETRY_FRAME_INTERVAL)
+                {
+                    retryFrameCounter = 0;
+                    needsReload = false;
+                    StartLoadingItems();
+                }
             }
             
             if (isLoading && pendingEntries.Count > 0)
             {
                 ProcessBatchItems();
             }
+            
+            if (isLoaded && !isLoading && iconConvertIndex < cachedItems.Count)
+            {
+                if (iconConvertDelay < ICON_CONVERT_DELAY_FRAMES)
+                {
+                    iconConvertDelay++;
+                }
+                else
+                {
+                    iconConvertFrameSkip++;
+                    if (iconConvertFrameSkip >= ICON_CONVERT_FRAME_INTERVAL)
+                    {
+                        iconConvertFrameSkip = 0;
+                        ConvertIconsBatch();
+                    }
+                }
+            }
+        }
+        
+        private void ConvertIconsBatch()
+        {
+            int converted = 0;
+            while (iconConvertIndex < cachedItems.Count && converted < 1)
+            {
+                var item = cachedItems[iconConvertIndex];
+                bool needsConvert = false;
+                
+                lock (queueLock)
+                {
+                    needsConvert = string.IsNullOrEmpty(item.iconBase64) && 
+                                   item.iconSprite != null && 
+                                   !iconCache.ContainsKey(item.id);
+                }
+                
+                if (needsConvert)
+                {
+                    try
+                    {
+                        byte[] pngData = SpriteToPngBytes(item.iconSprite);
+                        if (pngData != null && pngData.Length > 0)
+                        {
+                            lock (queueLock)
+                            {
+                                pngConvertQueue.Enqueue((item.id, pngData));
+                            }
+                        }
+                    }
+                    catch { }
+                    converted++;
+                }
+                else if (!string.IsNullOrEmpty(item.iconBase64))
+                {
+                }
+                else
+                {
+                    lock (queueLock)
+                    {
+                        if (iconCache.TryGetValue(item.id, out string cached))
+                        {
+                            item.iconBase64 = cached;
+                        }
+                    }
+                }
+                iconConvertIndex++;
+            }
+        }
+        
+        private byte[] SpriteToPngBytes(Sprite sprite)
+        {
+            if (sprite == null || sprite.texture == null) return null;
+
+            Texture2D texture = sprite.texture;
+            Rect rect = sprite.rect;
+            int x = (int)rect.x;
+            int y = (int)rect.y;
+            int width = (int)rect.width;
+            int height = (int)rect.height;
+
+            Texture2D readableTexture;
+            
+            if (texture.isReadable)
+            {
+                Color[] pixels = texture.GetPixels(x, y, width, height);
+                if (IsEmptyTexture(pixels)) return null;
+
+                readableTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                readableTexture.SetPixels(pixels);
+                readableTexture.Apply();
+            }
+            else
+            {
+                RenderTexture rt = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
+                Graphics.Blit(texture, rt);
+                RenderTexture previous = RenderTexture.active;
+                RenderTexture.active = rt;
+                
+                Texture2D fullTexture = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+                fullTexture.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                fullTexture.Apply();
+                
+                RenderTexture.active = previous;
+                RenderTexture.ReleaseTemporary(rt);
+                
+                Color[] pixels = fullTexture.GetPixels(x, y, width, height);
+                UnityEngine.Object.Destroy(fullTexture);
+                
+                if (IsEmptyTexture(pixels)) return null;
+
+                readableTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                readableTexture.SetPixels(pixels);
+                readableTexture.Apply();
+            }
+
+            byte[] pngData = readableTexture.EncodeToPNG();
+            UnityEngine.Object.Destroy(readableTexture);
+
+            return pngData;
+        }
+        
+        private bool IsEmptyTexture(Color[] pixels)
+        {
+            for (int i = 0; i < pixels.Length; i += 10)
+            {
+                if (pixels[i].a > 0.05f) return false;
+            }
+            return true;
         }
         
         private void StartLoadingItems()
@@ -144,13 +359,16 @@ namespace cvbhhnClassLibrary1.Systems
             pendingEntries.Clear();
             currentEntryIndex = 0;
             totalEntries = 0;
+            iconConvertIndex = 0;
+            iconConvertDelay = 0;
 
             try
             {
                 if (ItemAssetsCollection.Instance == null)
                 {
-                    Debug.LogWarning("[ItemReader] ItemAssetsCollection.Instance is null");
+                    Debug.Log("[ItemReader] ItemAssetsCollection.Instance is null, will retry later");
                     isLoading = false;
+                    needsReload = true;
                     return;
                 }
 
@@ -220,6 +438,40 @@ namespace cvbhhnClassLibrary1.Systems
             return new List<ItemInfo>(cachedItems);
         }
 
+        public List<ItemInfo> GetItemsWithIcons(int startIndex, int count)
+        {
+            var result = new List<ItemInfo>();
+            int endIndex = Math.Min(startIndex + count, cachedItems.Count);
+            
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var item = cachedItems[i];
+                lock (queueLock)
+                {
+                    if (string.IsNullOrEmpty(item.iconBase64) && iconCache.TryGetValue(item.id, out string cached))
+                    {
+                        item.iconBase64 = cached;
+                    }
+                }
+                result.Add(item);
+            }
+            return result;
+        }
+
+        public void ConvertIconsForItems(List<ItemInfo> items)
+        {
+            foreach (var item in items)
+            {
+                lock (queueLock)
+                {
+                    if (string.IsNullOrEmpty(item.iconBase64) && iconCache.TryGetValue(item.id, out string cached))
+                    {
+                        item.iconBase64 = cached;
+                    }
+                }
+            }
+        }
+
         private void ExtractItemInfo(object entry)
         {
             Type entryType = entry.GetType();
@@ -238,18 +490,6 @@ namespace cvbhhnClassLibrary1.Systems
 
             if (metaData.id <= 0) return;
 
-            string iconBase64 = "";
-            if (metaData.icon != null)
-            {
-                try
-                {
-                    iconBase64 = SpriteToBase64(metaData.icon);
-                }
-                catch
-                {
-                }
-            }
-
             var itemInfo = new ItemInfo
             {
                 id = metaData.id,
@@ -260,107 +500,11 @@ namespace cvbhhnClassLibrary1.Systems
                 quality = metaData.quality,
                 price = metaData.priceEach,
                 maxStack = metaData.maxStackCount,
-                iconBase64 = iconBase64
+                iconBase64 = "",
+                iconSprite = metaData.icon
             };
 
             cachedItems.Add(itemInfo);
-        }
-
-        private string SpriteToBase64(Sprite sprite)
-        {
-            if (sprite == null || sprite.texture == null) return "";
-
-            try
-            {
-                Texture2D texture = sprite.texture;
-                Rect rect = sprite.rect;
-                int x = (int)rect.x;
-                int y = (int)rect.y;
-                int width = (int)rect.width;
-                int height = (int)rect.height;
-
-                Texture2D readableTexture;
-                
-                if (texture.isReadable)
-                {
-                    Color[] pixels = texture.GetPixels(x, y, width, height);
-                    if (IsEmptyTexture(pixels)) return "";
-
-                    readableTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                    readableTexture.SetPixels(pixels);
-                    readableTexture.Apply();
-                }
-                else
-                {
-                    RenderTexture rt = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-                    Graphics.Blit(texture, rt);
-                    RenderTexture previous = RenderTexture.active;
-                    RenderTexture.active = rt;
-                    
-                    Texture2D fullTexture = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
-                    fullTexture.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
-                    fullTexture.Apply();
-                    
-                    RenderTexture.active = previous;
-                    RenderTexture.ReleaseTemporary(rt);
-                    
-                    Color[] pixels = fullTexture.GetPixels(x, y, width, height);
-                    UnityEngine.Object.Destroy(fullTexture);
-                    
-                    if (IsEmptyTexture(pixels)) return "";
-
-                    readableTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                    readableTexture.SetPixels(pixels);
-                    readableTexture.Apply();
-                }
-
-                byte[] pngData = readableTexture.EncodeToPNG();
-                UnityEngine.Object.Destroy(readableTexture);
-
-                return Convert.ToBase64String(pngData);
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[ItemReader] Failed to convert sprite to base64: {e.Message}");
-                return "";
-            }
-        }
-        
-        private bool IsEmptyTexture(Color[] pixels)
-        {
-            if (pixels == null || pixels.Length == 0) return true;
-            
-            int emptyCount = 0;
-            int sampleCount = 0;
-            int step = Math.Max(1, pixels.Length / 200);
-            float minR = 1f, maxR = 0f, minG = 1f, maxG = 0f, minB = 1f, maxB = 0f;
-            
-            for (int i = 0; i < pixels.Length; i += step)
-            {
-                sampleCount++;
-                Color c = pixels[i];
-                
-                if (c.a < 0.1f)
-                {
-                    emptyCount++;
-                }
-                else if (c.r > 0.85f && c.g > 0.85f && c.b > 0.85f)
-                {
-                    emptyCount++;
-                }
-                
-                if (c.a > 0.1f)
-                {
-                    minR = Math.Min(minR, c.r); maxR = Math.Max(maxR, c.r);
-                    minG = Math.Min(minG, c.g); maxG = Math.Max(maxG, c.g);
-                    minB = Math.Min(minB, c.b); maxB = Math.Max(maxB, c.b);
-                }
-            }
-            
-            float emptyRatio = (float)emptyCount / sampleCount;
-            float colorVariance = (maxR - minR) + (maxG - minG) + (maxB - minB);
-            
-            return emptyRatio > 0.90f || colorVariance < 0.1f;
         }
 
         public ItemInfo GetItemById(int id)

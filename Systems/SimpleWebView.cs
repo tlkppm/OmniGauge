@@ -174,6 +174,18 @@ namespace cvbhhnClassLibrary1.Systems
                 {
                     HandleCompleteGameTaskAPI(context);
                 }
+                else if (path == "/api/tasks/reset")
+                {
+                    HandleResetGameTaskAPI(context);
+                }
+                else if (path == "/api/tasks/activate")
+                {
+                    HandleActivateTaskAPI(context);
+                }
+                else if (path == "/api/tasks/force-complete")
+                {
+                    HandleForceCompleteTaskAPI(context);
+                }
                 else if (path == "/api/damage")
                 {
                     HandleDamageAPI(context);
@@ -218,7 +230,6 @@ namespace cvbhhnClassLibrary1.Systems
             try
             {
                 var tasks = gameTaskReader.GetCachedTasks();
-                Debug.Log($"[SimpleHTTPServer] Tasks API called, returning {tasks.Count} tasks");
                 
                 StringBuilder json = new StringBuilder();
                 json.Append("[");
@@ -368,6 +379,96 @@ namespace cvbhhnClassLibrary1.Systems
             catch (System.Exception e)
             {
                 Debug.LogError($"[SimpleHTTPServer] Error handling complete game task API: {e.Message}");
+                SendErrorResponse(context, e.Message);
+            }
+        }
+
+        private void HandleResetGameTaskAPI(System.Net.HttpListenerContext context)
+        {
+            try
+            {
+                using (var reader = new System.IO.StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                {
+                    string body = reader.ReadToEnd();
+                    var parts = System.Web.HttpUtility.ParseQueryString(body);
+                    
+                    int id = int.Parse(parts["id"] ?? "0");
+                    bool result = gameTaskReader.TryResetGameQuest(id);
+                    
+                    string json = $"{{\"success\":{result.ToString().ToLower()}}}";
+                    byte[] buffer = Encoding.UTF8.GetBytes(json);
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    context.Response.ContentLength64 = buffer.Length;
+                    context.Response.StatusCode = 200;
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    
+                    context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                    context.Response.OutputStream.Close();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SimpleHTTPServer] Error handling reset game task API: {e.Message}");
+                SendErrorResponse(context, e.Message);
+            }
+        }
+
+        private void HandleActivateTaskAPI(System.Net.HttpListenerContext context)
+        {
+            try
+            {
+                using (var reader = new System.IO.StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                {
+                    string body = reader.ReadToEnd();
+                    var parts = System.Web.HttpUtility.ParseQueryString(body);
+                    
+                    int id = int.Parse(parts["id"] ?? "0");
+                    bool result = gameTaskReader.TryActivateQuest(id);
+                    
+                    string json = $"{{\"success\":{result.ToString().ToLower()}}}";
+                    byte[] buffer = Encoding.UTF8.GetBytes(json);
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    context.Response.ContentLength64 = buffer.Length;
+                    context.Response.StatusCode = 200;
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    
+                    context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                    context.Response.OutputStream.Close();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SimpleHTTPServer] Error handling activate task API: {e.Message}");
+                SendErrorResponse(context, e.Message);
+            }
+        }
+
+        private void HandleForceCompleteTaskAPI(System.Net.HttpListenerContext context)
+        {
+            try
+            {
+                using (var reader = new System.IO.StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                {
+                    string body = reader.ReadToEnd();
+                    var parts = System.Web.HttpUtility.ParseQueryString(body);
+                    
+                    int id = int.Parse(parts["id"] ?? "0");
+                    bool result = gameTaskReader.TryForceCompleteQuest(id);
+                    
+                    string json = $"{{\"success\":{result.ToString().ToLower()}}}";
+                    byte[] buffer = Encoding.UTF8.GetBytes(json);
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    context.Response.ContentLength64 = buffer.Length;
+                    context.Response.StatusCode = 200;
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    
+                    context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                    context.Response.OutputStream.Close();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SimpleHTTPServer] Error handling force complete task API: {e.Message}");
                 SendErrorResponse(context, e.Message);
             }
         }

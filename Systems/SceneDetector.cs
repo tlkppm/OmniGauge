@@ -29,25 +29,76 @@ namespace cvbhhnClassLibrary1.Systems
             "Shelter"
         };
 
+        private static Type cachedPlayerType;
+        private static Type cachedGameManagerType;
+        private static Type cachedCheatingManagerType;
+        private static PropertyInfo cachedPlayerInstanceProp;
+        private static PropertyInfo cachedGameManagerInstanceProp;
+        private static PropertyInfo cachedCheatingManagerInstanceProp;
+        private static bool typesInitialized = false;
+        private static string lastSceneName = "";
+        private static bool lastIsInGame = false;
+        private static int cacheFrameCount = 0;
+
+        private static void InitializeTypes()
+        {
+            if (typesInitialized) return;
+            typesInitialized = true;
+
+            cachedPlayerType = FindTypeCached("Player");
+            cachedGameManagerType = FindTypeCached("GameManager");
+            cachedCheatingManagerType = FindTypeCached("CheatingManager");
+
+            if (cachedPlayerType != null)
+            {
+                cachedPlayerInstanceProp = cachedPlayerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)
+                    ?? cachedPlayerType.GetProperty("LocalPlayer", BindingFlags.Public | BindingFlags.Static);
+            }
+            if (cachedGameManagerType != null)
+            {
+                cachedGameManagerInstanceProp = cachedGameManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            }
+            if (cachedCheatingManagerType != null)
+            {
+                cachedCheatingManagerInstanceProp = cachedCheatingManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            }
+        }
+
         public static bool IsInGame()
         {
             try
             {
                 string currentSceneName = SceneManager.GetActiveScene().name;
                 
+                if (currentSceneName == lastSceneName && cacheFrameCount < 30)
+                {
+                    cacheFrameCount++;
+                    return lastIsInGame;
+                }
+                
+                cacheFrameCount = 0;
+                lastSceneName = currentSceneName;
+                
                 if (string.IsNullOrEmpty(currentSceneName))
+                {
+                    lastIsInGame = false;
                     return false;
+                }
 
                 foreach (var menuName in MainMenuSceneNames)
                 {
                     if (currentSceneName.IndexOf(menuName, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
+                        lastIsInGame = false;
                         return false;
                     }
                 }
 
-                if (CheckPlayerExists())
+                InitializeTypes();
+
+                if (CheckPlayerExistsCached())
                 {
+                    lastIsInGame = true;
                     return true;
                 }
 
@@ -55,11 +106,13 @@ namespace cvbhhnClassLibrary1.Systems
                 {
                     if (currentSceneName.IndexOf(gameName, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
+                        lastIsInGame = true;
                         return true;
                     }
                 }
 
-                return CheckGameManagerExists();
+                lastIsInGame = CheckGameManagerExistsCached();
+                return lastIsInGame;
             }
             catch (Exception e)
             {
@@ -85,32 +138,14 @@ namespace cvbhhnClassLibrary1.Systems
             }
         }
 
-        private static bool CheckPlayerExists()
+        private static bool CheckPlayerExistsCached()
         {
             try
             {
-                var playerType = FindType("Player");
-                if (playerType != null)
+                if (cachedPlayerInstanceProp != null)
                 {
-                    var instanceProp = playerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                    if (instanceProp != null)
-                    {
-                        var instance = instanceProp.GetValue(null);
-                        return instance != null;
-                    }
-                    
-                    var localPlayerProp = playerType.GetProperty("LocalPlayer", BindingFlags.Public | BindingFlags.Static);
-                    if (localPlayerProp != null)
-                    {
-                        var localPlayer = localPlayerProp.GetValue(null);
-                        return localPlayer != null;
-                    }
-                }
-
-                var player = GameObject.FindObjectOfType<MonoBehaviour>();
-                if (player != null && player.GetType().Name.Contains("Player"))
-                {
-                    return true;
+                    var instance = cachedPlayerInstanceProp.GetValue(null);
+                    return instance != null;
                 }
             }
             catch
@@ -119,38 +154,20 @@ namespace cvbhhnClassLibrary1.Systems
             return false;
         }
 
-        private static bool CheckGameManagerExists()
+        private static bool CheckGameManagerExistsCached()
         {
             try
             {
-                var gameManagerType = FindType("GameManager");
-                if (gameManagerType != null)
+                if (cachedGameManagerInstanceProp != null)
                 {
-                    var instanceProp = gameManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                    if (instanceProp != null)
-                    {
-                        var instance = instanceProp.GetValue(null);
-                        if (instance != null)
-                        {
-                            var isInGameProp = gameManagerType.GetProperty("IsInGame", BindingFlags.Public | BindingFlags.Instance);
-                            if (isInGameProp != null)
-                            {
-                                return (bool)isInGameProp.GetValue(instance);
-                            }
-                            return true;
-                        }
-                    }
+                    var instance = cachedGameManagerInstanceProp.GetValue(null);
+                    return instance != null;
                 }
 
-                var cheatingManagerType = FindType("CheatingManager");
-                if (cheatingManagerType != null)
+                if (cachedCheatingManagerInstanceProp != null)
                 {
-                    var instanceProp = cheatingManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
-                    if (instanceProp != null)
-                    {
-                        var instance = instanceProp.GetValue(null);
-                        return instance != null;
-                    }
+                    var instance = cachedCheatingManagerInstanceProp.GetValue(null);
+                    return instance != null;
                 }
             }
             catch
@@ -159,7 +176,7 @@ namespace cvbhhnClassLibrary1.Systems
             return false;
         }
 
-        private static Type FindType(string typeName)
+        private static Type FindTypeCached(string typeName)
         {
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {

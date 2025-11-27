@@ -118,6 +118,11 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append(".progress-bar { height: 100%; background-color: var(--primary-color); transition: width 0.3s ease; }");
             html.Append(".progress-text { font-size: 13px; color: var(--text-secondary); text-align: right; }");
             
+            html.Append(".task-objectives { margin: 12px 0; padding: 12px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; line-height: 1.6; }");
+            html.Append(".task-rewards { margin: 12px 0; padding: 12px; background-color: rgba(245, 158, 11, 0.1); border-radius: 8px; font-size: 14px; border-left: 3px solid #f59e0b; }");
+            html.Append(".task-section-title { font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }");
+            html.Append(".task-actions { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 12px; }");
+            
             html.Append(".input-group { margin-bottom: 16px; }");
             html.Append(".input-label { display: block; font-size: 14px; font-weight: 500; color: var(--text-color); margin-bottom: 8px; }");
             html.Append(".form-control { width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-color); font-size: 14px; transition: border-color 0.2s; }");
@@ -267,8 +272,6 @@ namespace cvbhhnClassLibrary1.Systems
             
             html.Append("</main>");
             html.Append("</div>"); // End layout
-            
-            // Toast Container
             html.Append("<div id=\"toastContainer\" class=\"toast-container\"></div>");
             
             // Item Add Modal
@@ -291,6 +294,22 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("<div class=\"modal-footer\">");
             html.Append("<button class=\"btn btn-secondary\" onclick=\"closeItemModal()\"><i class=\"fa-solid fa-xmark\"></i> 取消</button>");
             html.Append("<button class=\"btn btn-primary\" onclick=\"confirmAddItem()\"><i class=\"fa-solid fa-plus\"></i> 添加物品</button>");
+            html.Append("</div>");
+            html.Append("</div>");
+            html.Append("</div>");
+
+            // Confirm Modal
+            html.Append("<div id=\"confirmModal\" class=\"modal-overlay\" onclick=\"if(event.target===this)closeConfirmModal()\">");
+            html.Append("<div class=\"modal\">");
+            html.Append("<div class=\"modal-header\" style=\"margin-bottom: 12px;\">");
+            html.Append("<div><div class=\"modal-title\" id=\"confirmTitle\" style=\"font-size: 20px;\">确认操作</div></div>");
+            html.Append("</div>");
+            html.Append("<div class=\"modal-body\">");
+            html.Append("<p id=\"confirmMessage\" style=\"font-size: 16px; color: var(--text-secondary); line-height: 1.6;\"></p>");
+            html.Append("</div>");
+            html.Append("<div class=\"modal-footer\">");
+            html.Append("<button class=\"btn btn-secondary\" onclick=\"closeConfirmModal()\"><i class=\"fa-solid fa-xmark\"></i> 取消</button>");
+            html.Append("<button class=\"btn btn-primary\" id=\"confirmBtn\"><i class=\"fa-solid fa-check\"></i> 确定</button>");
             html.Append("</div>");
             html.Append("</div>");
             html.Append("</div>");
@@ -352,9 +371,42 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("<div class=\"card-title\"><i class=\"fa-solid fa-scroll\"></i> 游戏内任务</div>");
             html.Append("<button class=\"btn btn-primary btn-sm\" onclick=\"loadGameTasks()\"><i class=\"fa-solid fa-sync\"></i> 刷新任务列表</button>");
             html.Append("</div>");
+            
+            html.Append("<div class=\"filter-bar\">");
+            html.Append("<div class=\"search-input-group\">");
+            html.Append("<i class=\"fa-solid fa-search\"></i>");
+            html.Append("<input type=\"text\" id=\"taskSearch\" class=\"form-control\" placeholder=\"搜索任务名称或ID...\" oninput=\"debouncedTaskSearch()\">");
+            html.Append("</div>");
+            html.Append("<select id=\"taskStatusFilter\" class=\"filter-select\" onchange=\"searchTasks()\">");
+            html.Append("<option value=\"\">所有状态</option>");
+            html.Append("<option value=\"进行中\">进行中</option>");
+            html.Append("<option value=\"已完成\">已完成</option>");
+            html.Append("<option value=\"可接取\">可接取</option>");
+            html.Append("<option value=\"未激活\">未激活</option>");
+            html.Append("<option value=\"已失败\">已失败</option>");
+            html.Append("</select>");
+            html.Append("</div>");
+            
+            html.Append("<div class=\"items-count\" id=\"tasksCount\" style=\"margin-left: 4px; font-weight: 500; margin-bottom: 16px;\">请点击刷新按钮加载任务</div>");
+            
             html.Append("<div class=\"task-grid\" id=\"gameTasks\">");
             html.Append("<div class=\"empty-state\"><i class=\"fa-solid fa-search\"></i><p>暂无数据，请按 R 键读取游戏任务</p></div>");
             html.Append("</div>");
+            
+            html.Append("<div class=\"pagination\" id=\"tasksPagination\" style=\"display: none;\">");
+            html.Append("<button class=\"page-btn\" onclick=\"goToTaskPage(1)\" title=\"首页\"><i class=\"fa-solid fa-angles-left\"></i></button>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToTaskPage(taskCurrentPage - 1)\" title=\"上一页\"><i class=\"fa-solid fa-angle-left\"></i></button>");
+            html.Append("<span class=\"page-info\" id=\"taskPageInfo\">第 1 页</span>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToTaskPage(taskCurrentPage + 1)\" title=\"下一页\"><i class=\"fa-solid fa-angle-right\"></i></button>");
+            html.Append("<button class=\"page-btn\" onclick=\"goToTaskPage(getTaskTotalPages())\" title=\"末页\"><i class=\"fa-solid fa-angles-right\"></i></button>");
+            html.Append("<select id=\"taskPageSizeSelect\" class=\"page-size-select\" onchange=\"changeTaskPageSize(this.value)\">");
+            html.Append("<option value=\"10\">10/页</option>");
+            html.Append("<option value=\"20\">20/页</option>");
+            html.Append("<option value=\"50\">50/页</option>");
+            html.Append("<option value=\"100\">100/页</option>");
+            html.Append("</select>");
+            html.Append("</div>");
+            
             html.Append("</div>");
             html.Append("</div>");
         }
@@ -446,6 +498,7 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("loadDamageData();");
             html.Append("initCharts();");
             html.Append("setInterval(loadDamageData, 2000);");
+            html.Append("setInterval(function() { loadGameTasks(true); }, 5000);");
             html.Append("window.switchTab = switchTab;");
             html.Append("window.initCharts = initCharts;");
             html.Append("window.clearDamageLog = clearDamageLog;");
@@ -455,6 +508,11 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("window.exportDamageHTML = exportDamageHTML;");
             html.Append("window.exportDamageScreenshot = exportDamageScreenshot;");
             html.Append("window.completeGameTask = completeGameTask;");
+            html.Append("window.resetGameTask = resetGameTask;");
+            html.Append("window.activateTask = activateTask;");
+            html.Append("window.forceCompleteTask = forceCompleteTask;");
+            html.Append("window.showConfirmModal = showConfirmModal;");
+            html.Append("window.closeConfirmModal = closeConfirmModal;");
             html.Append("window.loadItems = loadItems;");
             html.Append("window.searchItems = searchItems;");
             html.Append("window.goToPage = goToPage;");
@@ -464,6 +522,10 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("window.closeItemModal = closeItemModal;");
             html.Append("window.adjustQuantity = adjustQuantity;");
             html.Append("window.confirmAddItem = confirmAddItem;");
+            html.Append("window.searchTasks = searchTasks;");
+            html.Append("window.goToTaskPage = goToTaskPage;");
+            html.Append("window.changeTaskPageSize = changeTaskPageSize;");
+            html.Append("window.getTaskTotalPages = getTaskTotalPages;");
             html.Append("window.addDamage = addDamage; window.loadGameTasks = loadGameTasks; window.loadDamageData = loadDamageData;");
             html.Append("</script>");
         }
@@ -473,6 +535,7 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("let damageLog = []; let totalDamage = 0; let maxDamage = 0; let hitCount = 0;");
             html.Append("let dpsChart = null; let weaponPieChart = null;");
             html.Append("let allItems = []; let filteredItems = []; let currentPage = 1; let itemsPerPage = parseInt(localStorage.getItem('omni_itemsPerPage')) || 50;");
+            html.Append("let allTasks = []; let filteredTasks = []; let taskCurrentPage = 1; let tasksPerPage = parseInt(localStorage.getItem('omni_tasksPerPage')) || 20;");
         }
 
         private static void AppendTabFunctions(StringBuilder html)
@@ -734,32 +797,133 @@ namespace cvbhhnClassLibrary1.Systems
 
         private static void AppendTaskFunctions(StringBuilder html)
         {
-            html.Append("function loadGameTasks() {");
+            html.Append("var lastTasksHash = '';");
+            html.Append("function getTasksHash(data) { return data.map(t => t.id + ':' + t.status + ':' + t.progress).join('|'); }");
+            html.Append("function loadGameTasks(silent) {");
             html.Append("const gameTasksElement = document.getElementById('gameTasks');");
-            html.Append("gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-spinner fa-spin\"></i><p>正在加载数据...</p></div>';");
+            html.Append("const countEl = document.getElementById('tasksCount');");
+            html.Append("if(!silent) { gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-spinner fa-spin\"></i><p>正在加载数据...</p></div>'; }");
             html.Append("fetch('/api/tasks').then(r => r.json()).then(data => {");
-            html.Append("if (data.length === 0) { gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-search\"></i><p>暂无数据，请按 R 键读取游戏任务</p></div>'; return; }");
-            html.Append("let html = '';");
-            html.Append("var statusColors = {'进行中': 'var(--primary-color)', '已完成': 'var(--success-color)', '可接取': '#f59e0b', '已失败': 'var(--danger-color)'};");
-            html.Append("data.forEach((task, idx) => {");
-            html.Append("var statusColor = statusColors[task.status] || 'var(--text-secondary)';");
-            html.Append("html += '<div class=\"task-card\" style=\"border-left: 4px solid ' + statusColor + ';\">';");
-            html.Append("html += '<div class=\"task-header-row\"><div class=\"task-name\">[' + task.id + '] ' + (task.name || '未命名任务') + '</div><div class=\"task-tag\" style=\"background: ' + statusColor + '; color: #fff; border: none;\">' + (task.status || 'Unknown') + '</div></div>';");
-            html.Append("if(task.objectives) { html += '<div class=\"task-desc\"><strong>目标：</strong>' + task.objectives + '</div>'; }");
-            html.Append("if(task.rewards) { html += '<div class=\"task-desc\"><strong>奖励：</strong>' + task.rewards + '</div>'; }");
-            html.Append("html += '<div class=\"task-desc\"><strong>进度：</strong>' + (task.progress || 'Unknown') + '</div>';");
-            html.Append("if(task.canComplete) { html += '<div class=\"task-actions\" style=\"margin-top: 12px;\"><button class=\"btn btn-success\" onclick=\"completeGameTask(' + task.id + ')\"><i class=\"fa-solid fa-check\"></i> 完成任务</button></div>'; }");
-            html.Append("html += '</div>';");
-            html.Append("});");
-            html.Append("gameTasksElement.innerHTML = html;");
-            html.Append("showToast('加载成功', '已读取游戏任务列表', 'success');");
+            html.Append("var newHash = getTasksHash(data);");
+            html.Append("if(silent && newHash === lastTasksHash) return;");
+            html.Append("lastTasksHash = newHash;");
+            html.Append("if (data.length === 0) { ");
+            html.Append("  allTasks = [];");
+            html.Append("  gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-search\"></i><p>暂无数据，请按 R 键读取游戏任务</p></div>'; ");
+            html.Append("  countEl.textContent = '暂无任务数据';");
+            html.Append("  return; ");
+            html.Append("}");
+            html.Append("allTasks = data;");
+            html.Append("searchTasks();");
+            html.Append("if(!silent) { showToast('加载成功', '已读取 ' + data.length + ' 个游戏任务', 'success'); }");
             html.Append("}).catch(err => { ");
+            html.Append("if(silent) return;");
             html.Append("console.error('[OmniGauge] Failed to load tasks:', err);");
             html.Append("gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-exclamation-triangle\"></i><p>加载失败: ' + err.message + '</p><p style=\"font-size: 12px; margin-top: 8px;\">请检查控制台日志</p></div>'; ");
             html.Append("showToast('加载失败', '无法读取游戏任务', 'error');");
             html.Append("});");
             html.Append("}");
+
+            html.Append("function searchTasks() {");
+            html.Append("const query = document.getElementById('taskSearch').value.toLowerCase();");
+            html.Append("const status = document.getElementById('taskStatusFilter').value;");
+            html.Append("const countEl = document.getElementById('tasksCount');");
+            html.Append("if (allTasks.length === 0) return;");
+            html.Append("filteredTasks = allTasks.filter(task => {");
+            html.Append("  const matchesQuery = !query || task.id.toString().includes(query) || (task.name && task.name.toLowerCase().includes(query));");
+            html.Append("  const matchesStatus = !status || task.status === status;");
+            html.Append("  return matchesQuery && matchesStatus;");
+            html.Append("});");
+            html.Append("countEl.textContent = '找到 ' + filteredTasks.length + ' 个任务 (总数: ' + allTasks.length + ')';");
+            html.Append("renderTasks(filteredTasks, true);");
+            html.Append("}");
+
+            html.Append("function renderTasks(tasks, resetPage) {");
+            html.Append("if(resetPage) taskCurrentPage = 1;");
+            html.Append("const gameTasksElement = document.getElementById('gameTasks');");
+            html.Append("const pagination = document.getElementById('tasksPagination');");
+            html.Append("if(tasks.length === 0) { gameTasksElement.innerHTML = '<div class=\"empty-state\"><i class=\"fa-solid fa-search\"></i><p>没有找到符合条件的任务</p></div>'; pagination.style.display = 'none'; return; }");
+            html.Append("const totalPages = Math.ceil(tasks.length / tasksPerPage);");
+            html.Append("if(taskCurrentPage > totalPages) taskCurrentPage = totalPages;");
+            html.Append("const startIdx = (taskCurrentPage - 1) * tasksPerPage;");
+            html.Append("const endIdx = Math.min(startIdx + tasksPerPage, tasks.length);");
+            html.Append("const pageTasks = tasks.slice(startIdx, endIdx);");
+            html.Append("let html = '';");
+            html.Append("var statusColors = {'进行中': 'var(--primary-color)', '已完成': 'var(--success-color)', '可接取': '#f59e0b', '已失败': 'var(--danger-color)', '未激活': '#9ca3af'};");
+            html.Append("pageTasks.forEach((task) => {");
+            html.Append("var statusColor = statusColors[task.status] || 'var(--text-secondary)';");
+            html.Append("html += '<div class=\"task-card\" style=\"border-left: 4px solid ' + statusColor + ';\">';");
+            html.Append("html += '<div class=\"task-header-row\"><div class=\"task-name\">[' + task.id + '] ' + (task.name || '未命名任务') + '</div><div class=\"task-tag\" style=\"background: ' + statusColor + '; color: #fff; border: none;\">' + (task.status || 'Unknown') + '</div></div>';");
+            html.Append("if(task.objectives) { ");
+            html.Append("  var objHtml = task.objectives.replace(/\\n/g, '<br>');");
+            html.Append("  html += '<div class=\"task-objectives\">';");
+            html.Append("  html += '<div class=\"task-section-title\" style=\"color: var(--text-color);\"><i class=\"fa-solid fa-bullseye\"></i>目标</div>';");
+            html.Append("  html += '<div style=\"color: var(--text-secondary);\">' + objHtml + '</div>';");
+            html.Append("  html += '</div>';");
+            html.Append("}");
+            html.Append("if(task.rewards && task.rewards !== '无奖励') { ");
+            html.Append("  var rewHtml = task.rewards.replace(/\\n/g, '<br>');");
+            html.Append("  html += '<div class=\"task-rewards\">';");
+            html.Append("  html += '<div class=\"task-section-title\" style=\"color: #f59e0b;\"><i class=\"fa-solid fa-gift\"></i>奖励</div>';");
+            html.Append("  html += '<div style=\"color: var(--text-secondary);\">' + rewHtml + '</div>';");
+            html.Append("  html += '</div>';");
+            html.Append("}");
+            html.Append("html += '<div style=\"font-size: 13px; color: var(--text-secondary); margin-top: 8px;\"><i class=\"fa-solid fa-tasks\" style=\"margin-right: 6px;\"></i>进度：' + (task.progress || '0/0') + '</div>';");
+            html.Append("html += '<div class=\"task-actions\">';");
+            html.Append("if(task.status === '未激活' || task.status === '可接取') { html += '<button class=\"btn\" style=\"background-color: #3b82f6; color: white; padding: 6px 12px; font-size: 0.9em;\" onclick=\"activateTask(' + task.id + ')\"><i class=\"fa-solid fa-play\" style=\"margin-right: 6px;\"></i>激活任务</button>'; }");
+            html.Append("if(task.status === '进行中') { html += '<button class=\"btn\" style=\"background-color: #ef4444; color: white; padding: 6px 12px; font-size: 0.9em;\" onclick=\"forceCompleteTask(' + task.id + ')\"><i class=\"fa-solid fa-forward-fast\" style=\"margin-right: 6px;\"></i>强制完成</button>'; }");
+            html.Append("if(task.canComplete) { html += '<button class=\"btn\" style=\"background-color: var(--success-color); color: white; padding: 6px 12px; font-size: 0.9em;\" onclick=\"completeGameTask(' + task.id + ')\"><i class=\"fa-solid fa-check\" style=\"margin-right: 6px;\"></i>完成任务</button>'; }");
+            html.Append("if(task.status === '已完成') { html += '<button class=\"btn\" style=\"background-color: #f59e0b; color: white; padding: 6px 12px; font-size: 0.9em;\" onclick=\"resetGameTask(' + task.id + ')\"><i class=\"fa-solid fa-rotate-left\" style=\"margin-right: 6px;\"></i>重置任务</button>'; }");
+            html.Append("html += '</div>';");
+            html.Append("html += '</div>';");
+            html.Append("});");
+            html.Append("gameTasksElement.innerHTML = html;");
+            html.Append("updateTaskPagination();");
+            html.Append("}");
+
+            html.Append("function getTaskTotalPages() { return Math.ceil(filteredTasks.length / tasksPerPage); }");
+
+            html.Append("function updateTaskPagination() {");
+            html.Append("var pagination = document.getElementById('tasksPagination');");
+            html.Append("var pageInfo = document.getElementById('taskPageInfo');");
+            html.Append("var totalPages = getTaskTotalPages();");
+            html.Append("if(totalPages <= 1) { pagination.style.display = 'none'; return; }");
+            html.Append("pagination.style.display = 'flex';");
+            html.Append("var startIdx = (taskCurrentPage - 1) * tasksPerPage + 1;");
+            html.Append("var endIdx = Math.min(taskCurrentPage * tasksPerPage, filteredTasks.length);");
+            html.Append("pageInfo.textContent = '第 ' + taskCurrentPage + '/' + totalPages + ' 页 (' + startIdx + '-' + endIdx + ')';");
+            html.Append("var btns = pagination.querySelectorAll('.page-btn');");
+            html.Append("btns[0].disabled = taskCurrentPage === 1;");
+            html.Append("btns[1].disabled = taskCurrentPage === 1;");
+            html.Append("btns[2].disabled = taskCurrentPage === totalPages;");
+            html.Append("btns[3].disabled = taskCurrentPage === totalPages;");
+            html.Append("}");
+
+            html.Append("function goToTaskPage(page) {");
+            html.Append("var totalPages = getTaskTotalPages();");
+            html.Append("if(page < 1) page = 1;");
+            html.Append("if(page > totalPages) page = totalPages;");
+            html.Append("if(page === taskCurrentPage) return;");
+            html.Append("taskCurrentPage = page;");
+            html.Append("renderTasks(filteredTasks, false);");
+            html.Append("document.getElementById('gameTasks').scrollIntoView({behavior: 'smooth', block: 'start'});");
+            html.Append("}");
+
+            html.Append("function changeTaskPageSize(size) {");
+            html.Append("tasksPerPage = parseInt(size);");
+            html.Append("localStorage.setItem('omni_tasksPerPage', tasksPerPage);");
+            html.Append("taskCurrentPage = 1;");
+            html.Append("renderTasks(filteredTasks, false);");
+            html.Append("document.getElementById('gameTasks').scrollIntoView({behavior: 'smooth', block: 'start'});");
+            html.Append("}");
             
+            html.Append("const debouncedTaskSearch = debounce(searchTasks, 300);");
+            
+            html.Append("document.addEventListener('DOMContentLoaded', function() {");
+            html.Append("  var taskPageSizeSelect = document.getElementById('taskPageSizeSelect');");
+            html.Append("  if(taskPageSizeSelect) taskPageSizeSelect.value = tasksPerPage;");
+            html.Append("});");
+
             html.Append("function completeGameTask(id) {");
             html.Append("fetch('/api/tasks/complete-game', {");
             html.Append("  method: 'POST',");
@@ -773,6 +937,67 @@ namespace cvbhhnClassLibrary1.Systems
             html.Append("    showToast('操作失败', '无法完成此任务，可能条件未达成', 'warning');");
             html.Append("  }");
             html.Append("}).catch(err => showToast('错误', '请求失败', 'error'));");
+            html.Append("}");
+            
+            html.Append("function showConfirmModal(title, message, onConfirm) {");
+            html.Append("document.getElementById('confirmTitle').textContent = title;");
+            html.Append("document.getElementById('confirmMessage').textContent = message;");
+            html.Append("var btn = document.getElementById('confirmBtn');");
+            html.Append("btn.onclick = function() { closeConfirmModal(); onConfirm(); };");
+            html.Append("document.getElementById('confirmModal').classList.add('show');");
+            html.Append("}");
+            
+            html.Append("function closeConfirmModal() {");
+            html.Append("document.getElementById('confirmModal').classList.remove('show');");
+            html.Append("}");
+
+            html.Append("function resetGameTask(id) {");
+            html.Append("showConfirmModal('重置任务', '确定要重置此任务吗？任务将从已完成状态恢复为进行中。', function() {");
+            html.Append("fetch('/api/tasks/reset', {");
+            html.Append("  method: 'POST',");
+            html.Append("  headers: {'Content-Type': 'application/x-www-form-urlencoded'},");
+            html.Append("  body: new URLSearchParams({id: id})");
+            html.Append("}).then(r => r.json()).then(data => {");
+            html.Append("  if(data.success) {");
+            html.Append("    loadGameTasks();");
+            html.Append("    showToast('操作成功', '任务已重置', 'success');");
+            html.Append("  } else {");
+            html.Append("    showToast('操作失败', '无法重置此任务', 'warning');");
+            html.Append("  }");
+            html.Append("}).catch(err => showToast('错误', '请求失败', 'error'));");
+            html.Append("});");
+            html.Append("}");
+            
+            html.Append("function activateTask(id) {");
+            html.Append("fetch('/api/tasks/activate', {");
+            html.Append("  method: 'POST',");
+            html.Append("  headers: {'Content-Type': 'application/x-www-form-urlencoded'},");
+            html.Append("  body: new URLSearchParams({id: id})");
+            html.Append("}).then(r => r.json()).then(data => {");
+            html.Append("  if(data.success) {");
+            html.Append("    loadGameTasks();");
+            html.Append("    showToast('操作成功', '任务已激活', 'success');");
+            html.Append("  } else {");
+            html.Append("    showToast('操作失败', '无法激活此任务（可能前置条件未满足）', 'warning');");
+            html.Append("  }");
+            html.Append("}).catch(err => showToast('错误', '请求失败', 'error'));");
+            html.Append("}");
+            
+            html.Append("function forceCompleteTask(id) {");
+            html.Append("showConfirmModal('强制完成', '确定要强制完成此任务吗？这将跳过所有任务目标。', function() {");
+            html.Append("fetch('/api/tasks/force-complete', {");
+            html.Append("  method: 'POST',");
+            html.Append("  headers: {'Content-Type': 'application/x-www-form-urlencoded'},");
+            html.Append("  body: new URLSearchParams({id: id})");
+            html.Append("}).then(r => r.json()).then(data => {");
+            html.Append("  if(data.success) {");
+            html.Append("    loadGameTasks();");
+            html.Append("    showToast('操作成功', '任务已强制完成', 'success');");
+            html.Append("  } else {");
+            html.Append("    showToast('操作失败', '无法强制完成此任务', 'warning');");
+            html.Append("  }");
+            html.Append("}).catch(err => showToast('错误', '请求失败', 'error'));");
+            html.Append("});");
             html.Append("}");
         }
 

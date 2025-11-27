@@ -34,6 +34,10 @@ namespace cvbhhnClassLibrary1
                     InitializeGameSystems();
                     systemsInitialized = true;
                 }
+                
+                Debug.Log("[ModBehaviour] Triggering data load for new game session");
+                gameTaskReader.RequestReload();
+                itemReader.RequestReload();
             }
             else if (!isInGame && wasInGame)
             {
@@ -43,6 +47,11 @@ namespace cvbhhnClassLibrary1
 
             if (!isInGame)
                 return;
+
+            if (gameTaskReader != null)
+            {
+                gameTaskReader.UpdateOnMainThread();
+            }
 
             if (itemReader != null)
             {
@@ -59,26 +68,15 @@ namespace cvbhhnClassLibrary1
             {
                 if (SceneDetector.IsInGame())
                 {
-                    StartCoroutine(ReloadDataAsync());
+                    Debug.Log("[ModBehaviour] Requesting data reload");
+                    gameTaskReader.RequestReload();
+                    itemReader.RequestReload();
                 }
                 else
                 {
                     Debug.Log("[ModBehaviour] Cannot reload data in main menu");
                 }
             }
-        }
-
-        private System.Collections.IEnumerator ReloadDataAsync()
-        {
-            Debug.Log("[ModBehaviour] Starting async data reload");
-            
-            yield return null;
-            gameTaskReader.ReadAllGameTasks();
-            Debug.Log("[ModBehaviour] Game tasks loaded");
-            
-            yield return null;
-            itemReader.RequestReload();
-            Debug.Log("[ModBehaviour] Item reload requested");
         }
 
 
